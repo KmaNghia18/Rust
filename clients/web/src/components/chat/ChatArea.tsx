@@ -195,9 +195,9 @@ export default function ChatArea() {
                   </div>
                 )}
                 <MessageItem
-                  message={msg}
+                  message={msg as any}
                   channelId={activeChannelId}
-                  prevMessage={channelMessages[i - 1]}
+                  prevMessage={channelMessages[i - 1] as any}
                   onReply={m => setReply({ id: m.id, author: m.author.username, content: m.content })}
                 />
               </div>

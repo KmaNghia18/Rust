@@ -11,7 +11,7 @@ export interface User {
   avatar_url?: string;
   banner_url?: string;
   bio?: string;
-  status: "online" | "idle" | "dnd" | "offline";
+  status: "online" | "idle" | "dnd" | "offline" | "invisible";
   custom_status?: string;
   is_bot: boolean;
 }
@@ -170,14 +170,17 @@ export const useUIStore = create<UIState>((set) => ({
 
 interface GuildState {
   guilds: Guild[];
+  activeGuildId: string | null;
   setGuilds: (guilds: Guild[]) => void;
   addGuild: (guild: Guild) => void;
   updateGuild: (id: string, patch: Partial<Guild>) => void;
   removeGuild: (id: string) => void;
+  setActiveGuild: (id: string | null) => void;
 }
 
 export const useGuildStore = create<GuildState>((set) => ({
   guilds: [],
+  activeGuildId: null,
   setGuilds: (guilds) => set({ guilds }),
   addGuild: (guild) => set((s) => ({ guilds: [...s.guilds, guild] })),
   updateGuild: (id, patch) =>
@@ -186,6 +189,7 @@ export const useGuildStore = create<GuildState>((set) => ({
     })),
   removeGuild: (id) =>
     set((s) => ({ guilds: s.guilds.filter((g) => g.id !== id) })),
+  setActiveGuild: (id) => set({ activeGuildId: id }),
 }));
 
 // ─── Channel Store ─────────────────────────────────────────────────────────
@@ -232,7 +236,10 @@ interface MessageState {
   prependMessages: (channelId: string, messages: Message[]) => void;
   addMessage: (channelId: string, message: Message) => void;
   updateMessage: (channelId: string, msgId: string, patch: Partial<Message>) => void;
+  editMessage: (channelId: string, msgId: string, content: string) => void;
   deleteMessage: (channelId: string, msgId: string) => void;
+  addReaction: (channelId: string, msgId: string, emoji: string, me: boolean) => void;
+  removeReaction: (channelId: string, msgId: string, emoji: string) => void;
   setTyping: (channelId: string, userId: string) => void;
   clearTyping: (channelId: string, userId: string) => void;
 }
@@ -265,6 +272,15 @@ export const useMessageStore = create<MessageState>((set) => ({
         ),
       },
     })),
+  editMessage: (channelId, msgId, content) =>
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [channelId]: (s.messages[channelId] ?? []).map((m) =>
+          m.id === msgId ? { ...m, content, edited_at: Date.now() } : m
+        ),
+      },
+    })),
   deleteMessage: (channelId, msgId) =>
     set((s) => ({
       messages: {
@@ -272,6 +288,32 @@ export const useMessageStore = create<MessageState>((set) => ({
         [channelId]: (s.messages[channelId] ?? []).filter(
           (m) => m.id !== msgId
         ),
+      },
+    })),
+  addReaction: (channelId, msgId, emoji, me) =>
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [channelId]: (s.messages[channelId] ?? []).map((m) => {
+          if (m.id !== msgId) return m;
+          const existing = m.reactions.find((r) => r.emoji === emoji);
+          if (existing) {
+            return { ...m, reactions: m.reactions.map((r) => r.emoji === emoji ? { ...r, count: r.count + 1, me } : r) };
+          }
+          return { ...m, reactions: [...m.reactions, { emoji, count: 1, me }] };
+        }),
+      },
+    })),
+  removeReaction: (channelId, msgId, emoji) =>
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [channelId]: (s.messages[channelId] ?? []).map((m) => {
+          if (m.id !== msgId) return m;
+          return { ...m, reactions: m.reactions
+            .map((r) => r.emoji === emoji ? { ...r, count: r.count - 1 } : r)
+            .filter((r) => r.count > 0) };
+        }),
       },
     })),
   setTyping: (channelId, userId) =>

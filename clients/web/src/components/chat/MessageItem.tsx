@@ -147,7 +147,7 @@ export default function MessageItem({ message: msg, channelId, prevMessage, onRe
     if (editContent.trim() === msg.content) { setEditing(false); return; }
     try {
       await messagesApi.edit(channelId, msg.id, { content: editContent.trim() });
-      editMessage(channelId, msg.id, { content: editContent.trim(), edited_at: Date.now() });
+      editMessage(channelId, msg.id, editContent.trim());
     } catch { toast.error("Failed to edit"); }
     setEditing(false);
   };
@@ -160,7 +160,7 @@ export default function MessageItem({ message: msg, channelId, prevMessage, onRe
       removeReaction(channelId, msg.id, emoji);
     } else {
       await messagesApi.addReaction(channelId, msg.id, encodeURIComponent(emoji));
-      addReaction(channelId, msg.id, emoji);
+      addReaction(channelId, msg.id, emoji, true);
     }
   };
 

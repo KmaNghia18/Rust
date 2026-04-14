@@ -75,7 +75,7 @@ export default function AppShell() {
   return (
     <div className={cn("flex h-screen w-screen overflow-hidden", `theme-${theme}`)}>
       {/* Server list */}
-      <ServerList onOpenServerSettings={gid => setServerSettingsFor(gid)} />
+      <ServerList />
 
       {/* Channel / DM sidebar */}
       <div className="flex flex-col flex-shrink-0">
@@ -83,7 +83,7 @@ export default function AppShell() {
           /* DM sidebar */
           <DMSidebar />
         ) : (
-          <ChannelSidebar onOpenMemberList={() => setShowMemberList(m => !m)} />
+          <ChannelSidebar />
         )}
 
         {/* Voice bar */}
@@ -112,29 +112,7 @@ export default function AppShell() {
       {showShortcuts     && <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />}
 
       {settingsOpen && (
-        <SettingsModal
-          initialTab={settingsTab}
-          onClose={closeSettings}
-          extraTabs={[
-            {
-              id: "appearance",
-              label: "Appearance",
-              group: "APP SETTINGS",
-              // Rendered inside SettingsModal already
-            },
-            {
-              id: "notifications",
-              label: "Notifications",
-              group: "APP SETTINGS",
-            },
-            {
-              id: "keybinds",
-              label: "Keybinds",
-              group: "APP SETTINGS",
-              onClick: () => { closeSettings(); setShowShortcuts(true); },
-            },
-          ]}
-        />
+        <SettingsModal />
       )}
 
       {serverSettingsFor && (
@@ -150,11 +128,8 @@ export default function AppShell() {
 // ── DM Sidebar ──────────────────────────────────────────────────────────────
 function DMSidebar() {
   const { setActiveChannel, activeChannelId } = useChannelStore();
-  const { data: dms } = { data: [] as any[] }; // populated from friendsApi.listDMs()
-  const [search, setSearch] = useState("");
-  const { Search } = require("lucide-react");
-  const { MessageSquare, UserPlus } = require("lucide-react");
-  const Image = require("next/image").default;
+  const dms: any[] = []; // populated from friendsApi.listDMs()
+  const { UserPlus } = require("lucide-react");
 
   return (
     <div className="w-60 bg-[#1e2035] flex flex-col">

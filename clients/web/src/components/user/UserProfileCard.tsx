@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { authApi, friendsApi } from "@/lib/api";
+import { usersApi, friendsApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { MessageSquare, UserPlus, UserMinus, UserX, MoreHorizontal } from "lucide-react";
 import Image from "next/image";
@@ -23,7 +23,7 @@ export default function UserProfileCard({ userId, position, onClose, guildRoles 
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", userId],
-    queryFn: () => authApi.getProfile(userId).then((r) => r.data),
+    queryFn: () => usersApi.getProfile(userId).then((r: any) => r.data),
   });
 
   // Outside click

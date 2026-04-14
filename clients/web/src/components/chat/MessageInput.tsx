@@ -5,7 +5,7 @@ import { useAuthStore, useMessageStore, useUIStore, useChannelStore } from "@/li
 import { useUnreadStore } from "@/lib/unread";
 import EmojiPickerButton from "./EmojiPickerButton";
 import GifPicker from "./GifPicker";
-import { Plus, Send, X, Hash, At } from "lucide-react";
+import { Plus, Send, X, Hash } from "lucide-react";
 import toast from "react-hot-toast";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,7 @@ export default function MessageInput({ channelId }: Props) {
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [triggerPos, setTriggerPos] = useState<number | null>(null);
   const [triggerChar, setTriggerChar] = useState<"@" | "#" | ":" | null>(null);
+  const [showGif, setShowGif] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef  = useRef<HTMLInputElement>(null);
@@ -129,8 +130,8 @@ export default function MessageInput({ channelId }: Props) {
   };
 
   // ── Send message ───────────────────────────────────────────────────────
-  const sendMessage = useCallback(async () => {
-    const trimmed = content.trim();
+  const sendMessage = useCallback(async (gifUrl?: string) => {
+    const trimmed = gifUrl ?? content.trim();
     if (!trimmed && files.length === 0) return;
     if (sending) return;
 

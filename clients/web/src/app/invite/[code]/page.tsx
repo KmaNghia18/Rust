@@ -12,7 +12,6 @@ export default function InvitePage({ params }: { params: { code: string } }) {
   const { code } = params;
   const { user } = useAuthStore();
   const { addGuild, setActiveGuild } = useGuildStore();
-  const { setActiveGuild: setUI } = useUIStore();
   const router = useRouter();
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
@@ -31,7 +30,7 @@ export default function InvitePage({ params }: { params: { code: string } }) {
       setJoined(true);
       toast.success(`Joined "${guild.name}"!`);
       setTimeout(() => {
-        setUI(guild.id);
+        setActiveGuild(guild.id);
         router.push("/");
       }, 1500);
     } catch (e: any) {

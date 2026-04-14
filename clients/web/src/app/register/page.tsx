@@ -20,7 +20,7 @@ const schema = z.object({
     .regex(/[A-Z]/, "Need one uppercase letter")
     .regex(/[0-9]/, "Need one number"),
   dob: z.string().min(1, "Date of birth is required"),
-  agree: z.literal(true, { errorMap: () => ({ message: "You must agree" }) }),
+  agree: z.literal(true, { error: "You must agree" }),
 });
 
 type FormData = z.infer<typeof schema>;
