@@ -1,4 +1,4 @@
-use axum::{Router, serve};
+use axum::serve;
 use tokio::net::TcpListener;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -7,6 +7,7 @@ mod config;
 mod db;
 mod error;
 mod handlers;
+mod jwt;
 mod middleware;
 mod models;
 mod routes;

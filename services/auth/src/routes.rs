@@ -3,10 +3,18 @@ use axum::{
     Router,
 };
 use sqlx::PgPool;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::TraceLayer;
 
 use crate::{config::Config, handlers};
 
 pub fn create_router(db: PgPool, redis: redis::Client, config: Config) -> Router {
+    // CORS
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     // Shared state
     let state = crate::models::AppState { db, redis, config };
 
@@ -15,6 +23,7 @@ pub fn create_router(db: PgPool, redis: redis::Client, config: Config) -> Router
         .route("/api/auth/register", post(handlers::auth::register))
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/logout", post(handlers::auth::logout))
+        .route("/api/auth/logout-all", post(handlers::auth::logout_all))
         .route("/api/auth/refresh", post(handlers::auth::refresh_token))
         // ─── 2FA ───────────────────────────────────────────────────
         .route("/api/auth/2fa/setup", post(handlers::mfa::setup_2fa))
@@ -31,6 +40,7 @@ pub fn create_router(db: PgPool, redis: redis::Client, config: Config) -> Router
         .route("/api/users/:id", get(handlers::users::get_user))
         // ─── Friends ───────────────────────────────────────────────
         .route("/api/friends", get(handlers::friends::list_friends))
+        .route("/api/friends/pending", get(handlers::friends::list_pending))
         .route("/api/friends/request", post(handlers::friends::send_request))
         .route("/api/friends/:user_id/accept", post(handlers::friends::accept_request))
         .route("/api/friends/:user_id/decline", post(handlers::friends::decline_request))
@@ -40,5 +50,7 @@ pub fn create_router(db: PgPool, redis: redis::Client, config: Config) -> Router
         .route("/api/users/block/:user_id", delete(handlers::users::unblock_user))
         // ─── Health ────────────────────────────────────────────────
         .route("/health", get(handlers::health::health_check))
+        .layer(cors)
+        .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
