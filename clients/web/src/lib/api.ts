@@ -71,15 +71,41 @@ export const guildsApi = {
   delete: (id: string) => api.delete(`/api/guilds/${id}`),
   leave: (id: string) => api.post(`/api/guilds/${id}/leave`),
   joinViaInvite: (code: string) => api.post(`/api/invites/${code}`),
+  joinByInvite: (code: string) => api.post(`/api/invites/${code}`),
   getInvite: (code: string) => api.get(`/api/invites/${code}`),
   getMembers: (id: string, after?: string) =>
     api.get(`/api/guilds/${id}/members`, { params: { after, limit: 100 } }),
+  // Roles
   getRoles: (id: string) => api.get(`/api/guilds/${id}/roles`),
+  createRole: (guildId: string, data: { name: string; color: number; permissions: number }) =>
+    api.post(`/api/guilds/${guildId}/roles`, data),
+  updateRole: (guildId: string, roleId: string, data: object) =>
+    api.patch(`/api/guilds/${guildId}/roles/${roleId}`, data),
+  deleteRole: (guildId: string, roleId: string) =>
+    api.delete(`/api/guilds/${guildId}/roles/${roleId}`),
+  updateMemberRoles: (guildId: string, userId: string, roleIds: string[]) =>
+    api.patch(`/api/guilds/${guildId}/members/${userId}`, { roles: roleIds }),
+  // Bans
   getBans: (id: string) => api.get(`/api/guilds/${id}/bans`),
   banMember: (guildId: string, userId: string, reason?: string) =>
     api.put(`/api/guilds/${guildId}/bans/${userId}`, { reason }),
+  unbanMember: (guildId: string, userId: string) =>
+    api.delete(`/api/guilds/${guildId}/bans/${userId}`),
   kickMember: (guildId: string, userId: string) =>
     api.delete(`/api/guilds/${guildId}/members/${userId}`),
+  // Invites
+  getInvites: (guildId: string) => api.get(`/api/guilds/${guildId}/invites`),
+  revokeInvite: (code: string) => api.delete(`/api/invites/${code}`),
+  // Emojis
+  getEmojis: (guildId: string) => api.get(`/api/guilds/${guildId}/emojis`),
+  createEmoji: (guildId: string, data: { name: string; image: string }) =>
+    api.post(`/api/guilds/${guildId}/emojis`, data),
+  deleteEmoji: (guildId: string, emojiId: string) =>
+    api.delete(`/api/guilds/${guildId}/emojis/${emojiId}`),
+  // Audit log
+  getAuditLog: (guildId: string, params?: object) =>
+    api.get(`/api/guilds/${guildId}/audit-logs`, { params }),
+  removeGuild: (id: string) => api.delete(`/api/guilds/${id}`),
 };
 
 // ─── Channels ──────────────────────────────────────────────────────────────
@@ -115,10 +141,24 @@ export const messagesApi = {
     api.delete(`/api/channels/${channelId}/messages/${msgId}/reactions/${emoji}/@me`),
   pin: (channelId: string, msgId: string) =>
     api.put(`/api/channels/${channelId}/pins/${msgId}`),
+  unpin: (channelId: string, msgId: string) =>
+    api.delete(`/api/channels/${channelId}/pins/${msgId}`),
+  getPins: (channelId: string) => api.get(`/api/channels/${channelId}/pins`),
   ack: (channelId: string, msgId: string) =>
     api.post(`/api/channels/${channelId}/messages/${msgId}/ack`),
+  triggerTyping: (channelId: string) =>
+    api.post(`/api/channels/${channelId}/typing`),
   search: (guildId: string, q: string, params?: object) =>
     api.get(`/api/guilds/${guildId}/messages/search`, { params: { q, ...params } }),
+  // Threads
+  createThread: (channelId: string, msgId: string, data: { name: string; auto_archive_duration?: number }) =>
+    api.post(`/api/channels/${channelId}/messages/${msgId}/threads`, data),
+  getThreads: (channelId: string) =>
+    api.get(`/api/channels/${channelId}/threads`),
+  joinThread: (threadId: string) =>
+    api.put(`/api/channels/${threadId}/thread-members/@me`),
+  leaveThread: (threadId: string) =>
+    api.delete(`/api/channels/${threadId}/thread-members/@me`),
 };
 
 // ─── Friends ───────────────────────────────────────────────────────────────
@@ -178,4 +218,49 @@ export const mediaApi = {
     form.append("icon", file);
     return api.post(`/api/guilds/${guildId}/icon`, form);
   },
+};
+
+// ─── Users ─────────────────────────────────────────────────────────────────
+
+export const usersApi = {
+  getProfile: (userId: string) => api.get(`/api/users/${userId}/profile`),
+  getNotes: (userId: string) => api.get(`/api/users/@me/notes/${userId}`),
+  setNote: (userId: string, note: string) =>
+    api.put(`/api/users/@me/notes/${userId}`, { note }),
+};
+
+// Backwards compat (authApi.getProfile)
+export const getProfile = (userId: string) => usersApi.getProfile(userId);
+
+// ─── GIF (Tenor) ───────────────────────────────────────────────────────────
+
+const TENOR_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? "";
+
+export const gifApi = {
+  search: (q: string, limit = 20, pos?: string) =>
+    fetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${TENOR_KEY}&limit=${limit}&media_filter=gif,tinygif${pos ? `&pos=${pos}` : ""}`, { cache: "no-store" })
+      .then(r => r.json()),
+  featured: (limit = 20) =>
+    fetch(`https://tenor.googleapis.com/v2/featured?key=${TENOR_KEY}&limit=${limit}&media_filter=gif,tinygif`, { cache: "no-store" })
+      .then(r => r.json()),
+  categories: () =>
+    fetch(`https://tenor.googleapis.com/v2/categories?key=${TENOR_KEY}`, { cache: "no-store" })
+      .then(r => r.json()),
+};
+
+// ─── Notifications ─────────────────────────────────────────────────────────
+
+export const notifsApi = {
+  getSettings: () => api.get("/api/users/@me/notification-settings"),
+  updateChannel: (channelId: string, data: object) =>
+    api.patch(`/api/users/@me/notification-settings/channels/${channelId}`, data),
+  updateGuild: (guildId: string, data: object) =>
+    api.patch(`/api/users/@me/notification-settings/guilds/${guildId}`, data),
+};
+
+// ─── OGP / Link previews ───────────────────────────────────────────────────
+
+export const embedApi = {
+  fetch: (url: string) =>
+    api.get("/api/embed", { params: { url } }),
 };
