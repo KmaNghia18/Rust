@@ -53,9 +53,12 @@ export const authApi = {
   refreshToken: (refresh_token: string) =>
     api.post("/api/auth/refresh", { refresh_token }),
   getMe: () => api.get("/api/users/@me"),
+  updateProfile: (data: Partial<{ username: string; bio: string; status: string; custom_status: string }>) =>
+    api.patch("/api/users/@me", data),
   updateMe: (data: Partial<{ username: string; bio: string; status: string; custom_status: string }>) =>
     api.patch("/api/users/@me", data),
 };
+
 
 // ─── Guilds ────────────────────────────────────────────────────────────────
 
@@ -121,14 +124,26 @@ export const messagesApi = {
 // ─── Friends ───────────────────────────────────────────────────────────────
 
 export const friendsApi = {
-  list: () => api.get("/api/friends"),
-  pending: () => api.get("/api/friends/pending"),
-  sendRequest: (userId: string) =>
-    api.post("/api/friends/request", { user_id: userId }),
-  accept: (userId: string) => api.post(`/api/friends/${userId}/accept`),
-  decline: (userId: string) => api.post(`/api/friends/${userId}/decline`),
-  remove: (userId: string) => api.delete(`/api/friends/${userId}`),
+  list: () => api.get("/api/v1/friends"),
+  pending: () => api.get("/api/v1/friends?status=pending"),
+  send: (data: { username: string }) =>
+    api.post("/api/v1/friends", data),
+  accept: (friendshipId: string) =>
+    api.put(`/api/v1/friends/${friendshipId}/accept`),
+  decline: (friendshipId: string) =>
+    api.delete(`/api/v1/friends/${friendshipId}`),
+  remove: (friendshipId: string) =>
+    api.delete(`/api/v1/friends/${friendshipId}`),
+  block: (userId: string) =>
+    api.post(`/api/v1/friends/${userId}/block`),
+  // DM Channels
+  listDMs: () => api.get("/api/v1/channels/@me"),
+  openDM: (recipientId: string) =>
+    api.post("/api/v1/channels/@me", { recipient_id: recipientId }),
+  closeDM: (channelId: string) =>
+    api.delete(`/api/v1/channels/@me/${channelId}`),
 };
+
 
 // ─── Voice ─────────────────────────────────────────────────────────────────
 
@@ -148,9 +163,19 @@ export const mediaApi = {
     form.append("avatar", file);
     return api.post("/api/users/@me/avatar", form);
   },
+  uploadBanner: (file: File) => {
+    const form = new FormData();
+    form.append("banner", file);
+    return api.post("/api/users/@me/banner", form);
+  },
   uploadAttachment: (channelId: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
     return api.post(`/api/channels/${channelId}/attachments`, form);
+  },
+  uploadGuildIcon: (guildId: string, file: File) => {
+    const form = new FormData();
+    form.append("icon", file);
+    return api.post(`/api/guilds/${guildId}/icon`, form);
   },
 };
