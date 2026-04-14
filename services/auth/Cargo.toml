@@ -3,6 +3,9 @@ name = "auth"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+
 [[bin]]
 name = "auth"
 path = "src/main.rs"
@@ -28,6 +31,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 validator = { workspace = true }
 reqwest = { workspace = true }
+rand = "0.8"
 models = { path = "../../shared/models" }
 error = { path = "../../shared/error" }
 
