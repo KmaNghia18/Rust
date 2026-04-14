@@ -4,7 +4,8 @@ import { messagesApi, mediaApi } from "@/lib/api";
 import { useAuthStore, useMessageStore, useUIStore, useChannelStore } from "@/lib/store";
 import { useUnreadStore } from "@/lib/unread";
 import EmojiPickerButton from "./EmojiPickerButton";
-import { Plus, Gift, Smile, Sticker, Send, X, Hash, At } from "lucide-react";
+import GifPicker from "./GifPicker";
+import { Plus, Send, X, Hash, At } from "lucide-react";
 import toast from "react-hot-toast";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -293,16 +294,35 @@ export default function MessageInput({ channelId }: Props) {
           className="flex-1 bg-transparent text-[#dcdbf0] placeholder-[#5c6080] text-sm resize-none outline-none leading-6 max-h-[200px] py-0.5"
         />
 
-        {/* Emoji + send */}
-        <div className="flex items-center mb-0.5">
+        {/* Emoji + GIF + send */}
+        <div className="flex items-center mb-0.5 relative">
           <EmojiPickerButton
             onSelect={emoji => setContent(c => c + emoji)}
             buttonClassName="text-[#8b8fad] hover:text-[#fee75c]"
           />
+          <button
+            onClick={() => setShowGif(g => !g)}
+            title="GIF Picker"
+            className={cn(
+              "p-1.5 transition-colors rounded text-[#8b8fad] hover:text-[#5865f2]",
+              showGif && "text-[#5865f2]"
+            )}
+          >
+            <span className="text-xs font-black">GIF</span>
+          </button>
+          {showGif && (
+            <GifPicker
+              onSelect={gifUrl => {
+                sendMessage(gifUrl);
+                setShowGif(false);
+              }}
+              onClose={() => setShowGif(false)}
+            />
+          )}
 
           {(content.trim() || files.length > 0) && (
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={sending}
               title="Send message (Enter)"
               className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#5865f2] hover:bg-[#4752c4] text-white transition-colors ml-1 disabled:opacity-60"
