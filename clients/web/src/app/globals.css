@@ -119,6 +119,94 @@ body {
 .skeleton {
   background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-4) 50%, var(--surface-3) 75%);
   background-size: 200% 100%;
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
   border-radius: 6px;
 }
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* ── Flash highlight (jump to message) ───────────── */
+@keyframes flash {
+  0%,100% { background: transparent; }
+  20%      { background: rgba(88,101,242,0.25); }
+  80%      { background: rgba(88,101,242,0.15); }
+}
+.flash-highlight {
+  animation: flash 1.5s ease;
+  border-radius: 4px;
+}
+
+/* ── Emoji mart dark theme override ─────────────── */
+em-emoji-picker {
+  --border-radius: 12px;
+  --category-icon-size: 16px;
+  --font-family: var(--font-inter), sans-serif;
+  --color-border: #2e3150;
+  --color-border-over: #5865f2;
+  --background-rgb: 30, 32, 53;
+  --rgb-accent: 88, 101, 242;
+  --input-border-radius: 8px;
+  --rgb-background: 30, 32, 53;
+  --rgb-input: 17, 24, 39;
+  --shadow: 0 8px 32px rgba(0,0,0,0.6);
+  height: 400px;
+}
+
+/* ── Voice bar ───────────────────────────────────── */
+.voice-bar {
+  position: fixed;
+  bottom: 0;
+  left: 72px;
+  width: 240px;
+  background: #111827;
+  border-top: 1px solid #1e2035;
+  padding: 8px 12px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Attachment preview ──────────────────────────── */
+.attachment-image {
+  max-width: 400px;
+  max-height: 300px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.attachment-image:hover { filter: brightness(0.85); }
+
+/* ── Message hover bg transition ─────────────────── */
+.message-group { transition: background-color 0.05s; }
+
+/* ── Channel create type selector ───────────────── */
+.channel-type-card {
+  padding: 12px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.channel-type-card.selected {
+  border-color: var(--accent);
+  background: rgba(88,101,242,0.1);
+}
+.channel-type-card:hover:not(.selected) { background: var(--surface-3); }
+
+/* ── Invite page gradient ────────────────────────── */
+.invite-bg {
+  background: radial-gradient(ellipse at top, #1e2035 0%, #111827 60%);
+}
+
+/* ── Role color swatch ───────────────────────────── */
+.role-color-swatch {
+  transition: transform 0.1s;
+}
+.role-color-swatch:hover { transform: scale(1.25); }
+
