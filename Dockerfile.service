@@ -1,0 +1,30 @@
+# ─── Stage 1: Chef (dependency caching) ────────────────────────────────────
+FROM lukemathwalker/cargo-chef:latest-rust-1.77-alpine AS chef
+WORKDIR /app
+
+# ─── Stage 2: Plan ──────────────────────────────────────────────────────────
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# ─── Stage 3: Build ─────────────────────────────────────────────────────────
+FROM chef AS builder
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+COPY . .
+ARG SERVICE_NAME
+RUN cargo build --release --bin ${SERVICE_NAME}
+
+# ─── Stage 4: Runtime (minimal) ─────────────────────────────────────────────
+FROM alpine:3.19 AS runtime
+RUN apk add --no-cache ca-certificates tzdata
+
+ARG SERVICE_NAME
+ENV SERVICE_NAME=${SERVICE_NAME}
+
+WORKDIR /app
+COPY --from=builder /app/target/release/${SERVICE_NAME} /app/service
+
+EXPOSE 8001
+ENTRYPOINT ["/app/service"]
