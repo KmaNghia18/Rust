@@ -1,0 +1,89 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Discord Clone",
+  "version": "0.1.0",
+  "identifier": "dev.discord-clone.app",
+  "build": {
+    "frontendDist": "../../web/out",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build && npm run export"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Discord Clone",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 940,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "transparent": false,
+        "decorations": true,
+        "center": true,
+        "hidden": false,
+        "visible": true,
+        "focus": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' https://cdn.discordapp.com blob: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src blob: data: https:; img-src 'self' blob: data: https: http://localhost:9000; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*"
+    },
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "tooltipText": "Discord Clone",
+      "menuOnLeftClick": false
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "wix": {
+        "language": "en-US"
+      },
+      "nsis": {
+        "installMode": "perUser",
+        "runAfterInstall": true
+      }
+    },
+    "macOS": {
+      "frameworks": [],
+      "exceptionDomain": "localhost",
+      "entitlements": "entitlements.plist",
+      "signingIdentity": null
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      },
+      "rpm": {
+        "depends": []
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://releases.discord-clone.dev/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "dialog": true,
+      "pubkey": ""
+    },
+    "window-state": {},
+    "single-instance": {},
+    "store": {}
+  }
+}

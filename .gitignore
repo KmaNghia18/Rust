@@ -1,0 +1,38 @@
+# Binaries
+target/
+**/target/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (for web client)
+clients/web/node_modules/
+clients/web/.next/
+clients/mobile/node_modules/
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+dist/
+build/
+
+# Tauri
+clients/desktop/src-tauri/target/
+
+# Test coverage
+lcov.info
+*.profraw
