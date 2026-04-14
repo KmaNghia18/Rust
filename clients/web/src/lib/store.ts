@@ -139,6 +139,7 @@ interface UIState {
   memberListOpen: boolean;
   settingsOpen: boolean;
   settingsPage: string;
+  settingsTab: string;
   setActiveGuild: (id: string | null) => void;
   setActiveChannel: (id: string | null) => void;
   toggleMobileSidebar: () => void;
@@ -154,13 +155,14 @@ export const useUIStore = create<UIState>((set) => ({
   memberListOpen: true,
   settingsOpen: false,
   settingsPage: "my-account",
+  settingsTab: "my-account",
   setActiveGuild: (id) => set({ activeGuildId: id, activeChannelId: null }),
   setActiveChannel: (id) => set({ activeChannelId: id }),
   toggleMobileSidebar: () =>
     set((s) => ({ mobileSidebarOpen: !s.mobileSidebarOpen })),
   toggleMemberList: () => set((s) => ({ memberListOpen: !s.memberListOpen })),
   openSettings: (page = "my-account") =>
-    set({ settingsOpen: true, settingsPage: page }),
+    set({ settingsOpen: true, settingsPage: page, settingsTab: page }),
   closeSettings: () => set({ settingsOpen: false }),
 }));
 
@@ -190,13 +192,16 @@ export const useGuildStore = create<GuildState>((set) => ({
 
 interface ChannelState {
   channels: Record<string, Channel[]>; // guild_id → channels
+  activeChannelId: string | null;
   setChannels: (guildId: string, channels: Channel[]) => void;
   addChannel: (guildId: string, channel: Channel) => void;
   removeChannel: (guildId: string, channelId: string) => void;
+  setActiveChannel: (channelId: string | null) => void;
 }
 
 export const useChannelStore = create<ChannelState>((set) => ({
   channels: {},
+  activeChannelId: null,
   setChannels: (guildId, channels) =>
     set((s) => ({ channels: { ...s.channels, [guildId]: channels } })),
   addChannel: (guildId, channel) =>
@@ -215,6 +220,7 @@ export const useChannelStore = create<ChannelState>((set) => ({
         ),
       },
     })),
+  setActiveChannel: (channelId) => set({ activeChannelId: channelId }),
 }));
 
 // ─── Message Store ─────────────────────────────────────────────────────────
@@ -287,6 +293,9 @@ export const useMessageStore = create<MessageState>((set) => ({
 
 interface VoiceState2 {
   voiceStates: Record<string, VoiceState>; // user_id → state
+  // Aliases for VoiceBar / UserPanel
+  connected: boolean;
+  channelId: string | null;
   currentChannelId: string | null;
   selfMute: boolean;
   selfDeaf: boolean;
@@ -301,14 +310,16 @@ interface VoiceState2 {
 
 export const useVoiceStore = create<VoiceState2>((set) => ({
   voiceStates: {},
+  connected: false,
+  channelId: null,
   currentChannelId: null,
   selfMute: false,
   selfDeaf: false,
   selfVideo: false,
   setVoiceState: (userId, state) =>
     set((s) => ({ voiceStates: { ...s.voiceStates, [userId]: state } })),
-  joinVoice: (channelId) => set({ currentChannelId: channelId }),
-  leaveVoice: () => set({ currentChannelId: null, selfMute: false, selfDeaf: false, selfVideo: false }),
+  joinVoice: (channelId) => set({ currentChannelId: channelId, channelId, connected: true }),
+  leaveVoice: () => set({ currentChannelId: null, channelId: null, connected: false, selfMute: false, selfDeaf: false, selfVideo: false }),
   toggleMute: () => set((s) => ({ selfMute: !s.selfMute })),
   toggleDeaf: () => set((s) => ({ selfDeaf: !s.selfDeaf })),
   toggleVideo: () => set((s) => ({ selfVideo: !s.selfVideo })),
