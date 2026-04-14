@@ -1,0 +1,29 @@
+[package]
+name = "gateway"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gateway"
+path = "src/main.rs"
+
+[dependencies]
+axum = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+redis = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dotenvy = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+futures = { workspace = true }
+dashmap = "5"
+models = { path = "../../shared/models" }
+events = { path = "../../shared/events" }
+error = { path = "../../shared/error" }
+auth-middleware = { path = "../../shared/auth-middleware" }

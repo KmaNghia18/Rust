@@ -1,0 +1,16 @@
+[package]
+name = "auth-middleware"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "auth_middleware"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
