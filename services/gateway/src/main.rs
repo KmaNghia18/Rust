@@ -1,27 +1,29 @@
 //! Discord Clone — WebSocket Gateway
 //!
-//! Handles all real-time WebSocket connections from clients.
-//! Each connected client maintains one persistent WSS connection.
+//! # Protocol Flow
 //!
-//! # Gateway Protocol
-//!
-//! ## Opcodes (Server → Client)
-//! - `0` DISPATCH — Event dispatch  
-//! - `1` HEARTBEAT — Request heartbeat
-//! - `10` HELLO — Initial handshake
-//! - `11` HEARTBEAT_ACK — Heartbeat acknowledged
-//!
-//! ## Opcodes (Client → Server)
-//! - `1` HEARTBEAT — Client heartbeat
-//! - `2` IDENTIFY — Authentication
-//! - `6` RESUME — Resume session
+//! ```
+//! Client                          Gateway
+//!   |                                |
+//!   |──── TCP connect ──────────────►|
+//!   |◄─── HELLO {heartbeat: 41250} ─|   op=10
+//!   |                                |
+//!   |──── IDENTIFY {token} ─────────►|   op=2
+//!   |◄─── READY {user, guilds} ──────|   op=0, t=READY
+//!   |                                |
+//!   |──── HEARTBEAT ────────────────►|   op=1  (every 41.25s)
+//!   |◄─── HEARTBEAT_ACK ─────────────|   op=11
+//!   |                                |
+//!   |◄─── MESSAGE_CREATE ────────────|   op=0, t=MESSAGE_CREATE
+//!   |◄─── TYPING_START ──────────────|   op=0, t=TYPING_START
+//!   |◄─── PRESENCE_UPDATE ───────────|   op=0, t=PRESENCE_UPDATE
+//! ```
 
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing::info;
 
 mod config;
-mod connection;
 mod events;
 mod gateway;
 mod session;
@@ -30,7 +32,7 @@ mod session;
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "gateway=debug".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "gateway=debug,info".into()),
         )
         .init();
 
@@ -38,14 +40,39 @@ async fn main() -> anyhow::Result<()> {
     let config = config::Config::from_env()?;
 
     info!("🌐 WebSocket Gateway starting...");
+    info!("   Heartbeat interval: {}ms", config.heartbeat_interval_ms);
 
     let redis = redis::Client::open(config.redis_url.as_str())?;
-    let gateway = Arc::new(gateway::Gateway::new(redis));
+    info!("✅ Connected to Redis");
+
+    let gateway = Arc::new(gateway::Gateway::new(redis, config.clone()));
+
+    // Also start a simple HTTP health endpoint
+    let health_gateway = Arc::clone(&gateway);
+    tokio::spawn(async move {
+        use axum::{routing::get, Router};
+        let app = Router::new()
+            .route("/health", get(|| async { "healthy" }))
+            .route("/stats", get(move || {
+                let g = Arc::clone(&health_gateway);
+                async move {
+                    axum::Json(serde_json::json!({
+                        "connections": g.connections.len(),
+                        "sessions": g.sessions.len(),
+                    }))
+                }
+            }));
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+        info!("📊 Health/stats endpoint on :8080");
+        axum::serve(listener, app).await.unwrap();
+    });
 
     let addr = format!("0.0.0.0:{}", config.port);
     let listener = TcpListener::bind(&addr).await?;
     info!("🚀 Gateway listening on ws://{}", addr);
+    info!("   Connect: ws://localhost:{}/", config.port);
 
+    // Accept connections in a loop
     while let Ok((stream, addr)) = listener.accept().await {
         let gateway = Arc::clone(&gateway);
         tokio::spawn(async move {
