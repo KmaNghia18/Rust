@@ -12,6 +12,7 @@ members = [
     "shared/events",
     "shared/error",
     "shared/auth-middleware",
+    "shared/ratelimit",
 ]
 resolver = "2"
 
