@@ -1,140 +1,337 @@
 version: '3.9'
 
+# ─── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  discord_internal:
+    driver: bridge
+  discord_external:
+    driver: bridge
+
+# ─── Infrastructure Services ──────────────────────────────────────────────────
 services:
-  # ─── PostgreSQL ─────────────────────────────────────────────────
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: discord_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: discord_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
+    ports: ["5432:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks: [discord_internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 10s; timeout: 5s; retries: 5
 
-  # ─── Redis ──────────────────────────────────────────────────────
+  # ── Redis ───────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: discord_redis
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
+    ports: ["6379:6379"]
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    networks: [discord_internal]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 10s; timeout: 5s; retries: 5
 
-  # ─── ScyllaDB (Messages) ────────────────────────────────────────
+  # ── ScyllaDB (Messages) ─────────────────────────────────────────────────────
   scylladb:
     image: scylladb/scylla:5.4
     container_name: discord_scylla
-    ports:
-      - "9042:9042"   # CQL
-      - "9180:9180"   # Prometheus metrics
-    volumes:
-      - scylla_data:/var/lib/scylla
+    restart: unless-stopped
+    ports: ["9042:9042", "9180:9180"]
+    volumes: [scylla_data:/var/lib/scylla]
     command: --smp 1 --memory 512M --overprovisioned 1
+    networks: [discord_internal]
     healthcheck:
       test: ["CMD-SHELL", "nodetool status | grep UN"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
+      interval: 30s; timeout: 10s; retries: 10
 
-  # ─── MinIO (File Storage) ───────────────────────────────────────
+  # ── MinIO (Object Storage) ──────────────────────────────────────────────────
   minio:
     image: minio/minio:latest
     container_name: discord_minio
+    restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
-    ports:
-      - "9000:9000"   # API
-      - "9001:9001"   # Console UI
-    volumes:
-      - minio_data:/data
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio_data:/data]
     command: server /data --console-address ":9001"
+    networks: [discord_internal, discord_external]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
+      interval: 30s; timeout: 20s; retries: 3
 
-  # ─── Elasticsearch (Search) ─────────────────────────────────────
+  # ── Elasticsearch ───────────────────────────────────────────────────────────
   elasticsearch:
     image: elasticsearch:8.11.3
     container_name: discord_elasticsearch
+    restart: unless-stopped
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-    volumes:
-      - es_data:/usr/share/elasticsearch/data
+    ports: ["9200:9200"]
+    volumes: [es_data:/usr/share/elasticsearch/data]
+    networks: [discord_internal]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      interval: 30s; timeout: 10s; retries: 5
 
-  # ─── Zookeeper (Kafka dependency) ───────────────────────────────
+  # ── Kafka ───────────────────────────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3
     container_name: discord_zookeeper
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
+    ports: ["2181:2181"]
+    networks: [discord_internal]
 
-  # ─── Kafka ──────────────────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.5.3
     container_name: discord_kafka
-    depends_on:
-      - zookeeper
+    restart: unless-stopped
+    depends_on: [zookeeper]
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    ports:
-      - "9092:9092"
+      KAFKA_LOG_RETENTION_HOURS: 24
+    ports: ["29092:29092"]
+    networks: [discord_internal]
 
-  # ─── Kafka UI (Dev Tool) ────────────────────────────────────────
+  # ─── Application Services ─────────────────────────────────────────────────
+
+  # ── Auth Service ────────────────────────────────────────────────────────────
+  auth:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    container_name: discord_auth
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/discord_dev
+      REDIS_URL: redis://redis:6379
+    ports: ["8001:8001"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis:    {condition: service_healthy}
+    networks: [discord_internal, discord_external]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s; timeout: 10s; retries: 3
+
+  # ── Gateway (WebSocket) ─────────────────────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    container_name: discord_gateway
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      REDIS_URL: redis://redis:6379
+    ports: ["8000:8000", "8080:8080"]
+    depends_on:
+      redis: {condition: service_healthy}
+    networks: [discord_internal, discord_external]
+
+  # ── Guilds Service ──────────────────────────────────────────────────────────
+  guilds:
+    build:
+      context: .
+      dockerfile: services/guilds/Dockerfile
+    container_name: discord_guilds
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/discord_dev
+      REDIS_URL: redis://redis:6379
+    ports: ["8002:8002"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis:    {condition: service_healthy}
+    networks: [discord_internal, discord_external]
+
+  # ── Messages Service ────────────────────────────────────────────────────────
+  messages:
+    build:
+      context: .
+      dockerfile: services/messages/Dockerfile
+    container_name: discord_messages
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      SCYLLA_NODES: scylladb:9042
+      REDIS_URL: redis://redis:6379
+    ports: ["8003:8003"]
+    depends_on:
+      scylladb: {condition: service_healthy}
+      redis:    {condition: service_healthy}
+    networks: [discord_internal, discord_external]
+
+  # ── Voice Service ───────────────────────────────────────────────────────────
+  voice:
+    build:
+      context: .
+      dockerfile: services/voice/Dockerfile
+    container_name: discord_voice
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      REDIS_URL: redis://redis:6379
+    ports: ["8004:8004", "8005:8005"]
+    depends_on:
+      redis: {condition: service_healthy}
+    networks: [discord_internal, discord_external]
+
+  # ── Media Service ───────────────────────────────────────────────────────────
+  media:
+    build:
+      context: .
+      dockerfile: services/media/Dockerfile
+    container_name: discord_media
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+    ports: ["8005:8005"]
+    depends_on:
+      minio: {condition: service_healthy}
+    networks: [discord_internal, discord_external]
+
+  # ── Search Service ──────────────────────────────────────────────────────────
+  search:
+    build:
+      context: .
+      dockerfile: services/search/Dockerfile
+    container_name: discord_search
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    ports: ["8006:8006"]
+    depends_on:
+      elasticsearch: {condition: service_healthy}
+    networks: [discord_internal, discord_external]
+
+  # ── Notifications Service ───────────────────────────────────────────────────
+  notifications:
+    build:
+      context: .
+      dockerfile: services/notifications/Dockerfile
+    container_name: discord_notifications
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/discord_dev
+      REDIS_URL: redis://redis:6379
+    ports: ["8007:8007"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis:    {condition: service_healthy}
+    networks: [discord_internal, discord_external]
+
+  # ── Web Client ──────────────────────────────────────────────────────────────
+  web:
+    build:
+      context: clients/web
+      dockerfile: Dockerfile
+    container_name: discord_web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://auth:8001
+      NEXT_PUBLIC_GATEWAY_URL: ws://gateway:8000
+      NEXT_PUBLIC_CDN_URL: http://minio:9000
+    ports: ["3000:3000"]
+    depends_on: [auth, gateway]
+    networks: [discord_internal, discord_external]
+
+  # ─── Observability ──────────────────────────────────────────────────────────
+
+  # ── Prometheus ──────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: discord_prometheus
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    ports: ["9090:9090"]
+    networks: [discord_internal]
+
+  # ── Grafana ─────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: discord_grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports: ["3001:3000"]
+    depends_on: [prometheus]
+    networks: [discord_internal]
+
+  # ── Jaeger (Distributed Tracing) ────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: discord_jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    networks: [discord_internal]
+
+  # ─── Dev Tools ───────────────────────────────────────────────────────────────
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: discord_kafka_ui
-    depends_on:
-      - kafka
+    depends_on: [kafka]
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-    ports:
-      - "8080:8080"
+    ports: ["8090:8080"]
+    networks: [discord_internal]
 
-  # ─── pgAdmin (Dev Tool) ─────────────────────────────────────────
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: discord_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@discord.dev
       PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
+    ports: ["5050:80"]
+    depends_on: [postgres]
+    networks: [discord_internal]
+
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: discord_redis_insight
+    ports: ["8001:8001"]
+    depends_on: [redis]
+    networks: [discord_internal]
 
 volumes:
   postgres_data:
@@ -142,3 +339,5 @@ volumes:
   scylla_data:
   minio_data:
   es_data:
+  prometheus_data:
+  grafana_data:
