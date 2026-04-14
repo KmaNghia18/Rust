@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -27,6 +29,9 @@
     "react-dom": "19.2.4",
     "react-hook-form": "^7.72.1",
     "react-hot-toast": "^2.6.0",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6",
