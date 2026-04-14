@@ -25,7 +25,8 @@ export default function GifPicker({ onSelect, onClose }: Props) {
   const [gifs, setGifs] = useState<GifResult[]>([]);
   const [categories, setCategories] = useState<{ searchterm: string; image: string }[]>([]);
   const [loading, setLoading] = useState(false);
-  const [next, setNext] = useState<string | undefined>();
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,13 +50,14 @@ export default function GifPicker({ onSelect, onClose }: Props) {
   // Load featured/search
   useEffect(() => {
     setLoading(true);
-    setNext(undefined);
+    setOffset(0);
+    setHasMore(true);
     const fn = debouncedQuery
-      ? gifApi.search(debouncedQuery, 24)
-      : gifApi.featured(24);
+      ? gifApi.search(debouncedQuery, 24, 0)
+      : gifApi.featured(24, 0);
     fn.then(data => {
       setGifs(data.results ?? []);
-      setNext(data.next);
+      setHasMore((data.results?.length ?? 0) >= 24);
     }).catch(() => setGifs([]))
       .finally(() => setLoading(false));
   }, [debouncedQuery]);
@@ -68,16 +70,18 @@ export default function GifPicker({ onSelect, onClose }: Props) {
   }, []);
 
   const loadMore = useCallback(() => {
-    if (!next || loading) return;
+    if (!hasMore || loading) return;
+    const nextOffset = offset + 24;
     setLoading(true);
     const fn = debouncedQuery
-      ? gifApi.search(debouncedQuery, 24, next)
-      : gifApi.featured(24);
+      ? gifApi.search(debouncedQuery, 24, nextOffset)
+      : gifApi.featured(24, nextOffset);
     fn.then(data => {
       setGifs(prev => [...prev, ...(data.results ?? [])]);
-      setNext(data.next);
+      setOffset(nextOffset);
+      setHasMore((data.results?.length ?? 0) >= 24);
     }).finally(() => setLoading(false));
-  }, [next, loading, debouncedQuery]);
+  }, [hasMore, loading, offset, debouncedQuery]);
 
   // Masonry-style: split into 3 columns
   const cols: GifResult[][] = [[], [], []];
@@ -191,7 +195,7 @@ export default function GifPicker({ onSelect, onClose }: Props) {
 
       {/* Tenor branding */}
       <div className="px-3 py-1.5 border-t border-[#2e3150] text-center">
-        <span className="text-[10px] text-[#5c6080]">Powered by Tenor</span>
+        <span className="text-[10px] text-[#5c6080]">Powered by GIPHY</span>
       </div>
     </div>
   );

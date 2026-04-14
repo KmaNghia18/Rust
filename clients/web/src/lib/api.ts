@@ -232,21 +232,64 @@ export const usersApi = {
 // Backwards compat (authApi.getProfile)
 export const getProfile = (userId: string) => usersApi.getProfile(userId);
 
-// ─── GIF (Tenor) ───────────────────────────────────────────────────────────
+// ─── GIF (Giphy) ───────────────────────────────────────────────────────────
+// Get your free key at: https://developers.giphy.com → Create App → API
+// Then add to .env.local: NEXT_PUBLIC_GIPHY_API_KEY=your_key
 
-const TENOR_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? "";
+const GIPHY_BASE = "https://api.giphy.com/v1/gifs";
+const GIPHY_KEY  = process.env.NEXT_PUBLIC_GIPHY_API_KEY ?? "";
+
+// Normalise Giphy response to match our GifResult interface
+function normaliseGiphy(data: any[]) {
+  return data.map((g: any) => ({
+    id: g.id,
+    title: g.title,
+    media_formats: {
+      gif:     { url: g.images?.original?.url     ?? "", dims: [parseInt(g.images?.original?.width     ?? "0"), parseInt(g.images?.original?.height     ?? "0")] as [number,number] },
+      tinygif: { url: g.images?.fixed_width?.url  ?? "", dims: [parseInt(g.images?.fixed_width?.width  ?? "0"), parseInt(g.images?.fixed_width?.height  ?? "0")] as [number,number] },
+    },
+  }));
+}
 
 export const gifApi = {
-  search: (q: string, limit = 20, pos?: string) =>
-    fetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${TENOR_KEY}&limit=${limit}&media_filter=gif,tinygif${pos ? `&pos=${pos}` : ""}`, { cache: "no-store" })
-      .then(r => r.json()),
-  featured: (limit = 20) =>
-    fetch(`https://tenor.googleapis.com/v2/featured?key=${TENOR_KEY}&limit=${limit}&media_filter=gif,tinygif`, { cache: "no-store" })
-      .then(r => r.json()),
-  categories: () =>
-    fetch(`https://tenor.googleapis.com/v2/categories?key=${TENOR_KEY}`, { cache: "no-store" })
-      .then(r => r.json()),
+  search: async (q: string, limit = 20, offset = 0) => {
+    if (!GIPHY_KEY) return { results: [], total: 0, next: undefined };
+    const url = `${GIPHY_BASE}/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}&rating=g&lang=en`;
+    const res = await fetch(url, { cache: "no-store" }).then(r => r.json());
+    return { results: normaliseGiphy(res.data ?? []), total: res.pagination?.total_count ?? 0, next: offset + limit };
+  },
+  featured: async (limit = 20, offset = 0) => {
+    if (!GIPHY_KEY) return { results: [], total: 0, next: undefined };
+    const url = `${GIPHY_BASE}/trending?api_key=${GIPHY_KEY}&limit=${limit}&offset=${offset}&rating=g`;
+    const res = await fetch(url, { cache: "no-store" }).then(r => r.json());
+    return { results: normaliseGiphy(res.data ?? []), total: res.pagination?.total_count ?? 0, next: offset + limit };
+  },
+  categories: async () => {
+    if (!GIPHY_KEY) return { tags: [] };
+    // Giphy doesn\'t have a categories endpoint like Tenor, return popular search terms
+    return {
+      tags: [
+        { searchterm: "funny",     image: "" },
+        { searchterm: "cute",      image: "" },
+        { searchterm: "reactions", image: "" },
+        { searchterm: "anime",     image: "" },
+        { searchterm: "love",      image: "" },
+        { searchterm: "gaming",    image: "" },
+        { searchterm: "wow",       image: "" },
+        { searchterm: "happy",     image: "" },
+        { searchterm: "sad",       image: "" },
+        { searchterm: "angry",     image: "" },
+        { searchterm: "yes",       image: "" },
+        { searchterm: "no",        image: "" },
+        { searchterm: "lol",       image: "" },
+        { searchterm: "cats",      image: "" },
+        { searchterm: "dogs",      image: "" },
+        { searchterm: "memes",     image: "" },
+      ],
+    };
+  },
 };
+
 
 // ─── Notifications ─────────────────────────────────────────────────────────
 
